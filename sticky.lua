@@ -153,24 +153,70 @@ local function updateStickyPlayerList()
     table.clear(stickyPlayerButtons)
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            local btn = Instance.new("TextButton") 
-            btn.Size = UDim2.new(1, -12, 0, 35) 
-            btn.Text = player.DisplayName 
-            btn.TextColor3 = Colors.Text 
-            btn.BackgroundColor3 = (selectedPlayer == player) and Colors.Success or Color3.fromRGB(50, 50, 65) 
-            btn.BorderSizePixel = 0 
-            btn.Font = Enum.Font.GothamSemibold 
-            btn.TextSize = 12 
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+            -- Container frame for player info
+            local container = Instance.new("Frame") 
+            container.Size = UDim2.new(1, -12, 0, 50) 
+            container.BackgroundColor3 = (selectedPlayer == player) and Colors.Success or Color3.fromRGB(50, 50, 65) 
+            container.BorderSizePixel = 0 
+            Instance.new("UICorner", container).CornerRadius = UDim.new(0, 8)
+            
+            -- Player thumbnail
+            local thumbnail = Instance.new("ImageLabel", container)
+            thumbnail.Size = UDim2.new(0, 40, 0, 40)
+            thumbnail.Position = UDim2.fromOffset(5, 5)
+            thumbnail.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            thumbnail.BorderSizePixel = 0
+            Instance.new("UICorner", thumbnail).CornerRadius = UDim.new(0, 20)
+            
+            -- Load player avatar
+            local success, thumbId = pcall(function()
+                return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+            end)
+            if success then
+                thumbnail.Image = thumbId
+            end
+            
+            -- Display name (nickname)
+            local displayNameLabel = Instance.new("TextLabel", container)
+            displayNameLabel.Size = UDim2.new(1, -60, 0, 22)
+            displayNameLabel.Position = UDim2.fromOffset(52, 5)
+            displayNameLabel.Text = player.DisplayName
+            displayNameLabel.TextColor3 = Colors.Text
+            displayNameLabel.BackgroundTransparency = 1
+            displayNameLabel.Font = Enum.Font.GothamBold
+            displayNameLabel.TextSize = 13
+            displayNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            displayNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            
+            -- Username (search name)
+            local usernameLabel = Instance.new("TextLabel", container)
+            usernameLabel.Size = UDim2.new(1, -60, 0, 18)
+            usernameLabel.Position = UDim2.fromOffset(52, 26)
+            usernameLabel.Text = "@" .. player.Name
+            usernameLabel.TextColor3 = Color3.fromRGB(150, 150, 160)
+            usernameLabel.BackgroundTransparency = 1
+            usernameLabel.Font = Enum.Font.Gotham
+            usernameLabel.TextSize = 11
+            usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            usernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            
+            -- Invisible button overlay for click detection
+            local btn = Instance.new("TextButton", container)
+            btn.Size = UDim2.new(1, 0, 1, 0)
+            btn.Text = ""
+            btn.BackgroundTransparency = 1
+            btn.BorderSizePixel = 0
+            
             btn.MouseButton1Click:Connect(function() 
                 selectedPlayer = player 
                 persistentTarget = player 
                 for _, b2 in pairs(stickyPlayerButtons) do b2.BackgroundColor3 = Color3.fromRGB(50, 50, 65) end 
-                btn.BackgroundColor3 = Colors.Success 
+                container.BackgroundColor3 = Colors.Success 
                 if currentStickyMode then setStickyMode(currentStickyMode) end 
             end)
-            btn.Parent = stickyPlayerList 
-            table.insert(stickyPlayerButtons, btn)
+            
+            container.Parent = stickyPlayerList 
+            table.insert(stickyPlayerButtons, container)
         end
     end
     stickyPlayerList.CanvasSize = UDim2.new(0, 0, 0, stickyPlayerLayout.AbsoluteContentSize.Y + 12)
