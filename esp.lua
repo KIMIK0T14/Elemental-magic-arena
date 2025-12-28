@@ -32,6 +32,19 @@ local function getPlayerDiamonds(player)
     return diamonds
 end
 
+-- Mejorada validacion para evitar jugadores "fantasma"
+local function isValidPlayer(player)
+    if not player or not player.Parent or player == LocalPlayer then return false end
+    local character = player.Character
+    if not character or not character.Parent then return false end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local head = character:FindFirstChild("Head")
+    if not humanoid or not rootPart or not head then return false end
+    if humanoid.Health <= 0 then return false end
+    return true
+end
+
 -- ESP Functions
 local function removeESPForPlayer(player)
     local d = espObjects[player]
@@ -44,12 +57,13 @@ local function removeESPForPlayer(player)
 end
 
 local function createESPForPlayer(player)
-    if player == LocalPlayer or espObjects[player] then return end
-    local character = player.Character if not character then return end
+    -- Usar la nueva validacion mejorada
+    if not isValidPlayer(player) or espObjects[player] then return end
+    
+    local character = player.Character
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     local head = character:FindFirstChild("Head")
-    if not (humanoid and rootPart and head) then return end
     
     local bb = Instance.new("BillboardGui") bb.Name = "KimikoESP" bb.Adornee = head bb.Size = UDim2.new(0, 200, 0, 120) bb.StudsOffset = Vector3.new(0, 2.5, 0) bb.AlwaysOnTop = true bb.LightInfluence = 0 bb.MaxDistance = 1000 bb.Parent = character
     local fr = Instance.new("Frame", bb) fr.Size = UDim2.new(1, 0, 1, 0) fr.BackgroundTransparency = 1
@@ -60,7 +74,6 @@ local function createESPForPlayer(player)
     local hl = Instance.new("TextLabel", fr) hl.Size = UDim2.new(1, 0, 0, 14) hl.Position = UDim2.fromOffset(0, 46) hl.BackgroundTransparency = 1 hl.Text = Texts.health .. ": " .. math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth) hl.TextColor3 = Colors.Text hl.TextStrokeColor3 = Color3.new(0, 0, 0) hl.TextStrokeTransparency = 0.3 hl.Font = Enum.Font.Gotham hl.TextSize = 11
     local dl = Instance.new("TextLabel", fr) dl.Size = UDim2.new(1, 0, 0, 14) dl.Position = UDim2.fromOffset(0, 62) dl.BackgroundTransparency = 1 dl.Text = Texts.dist .. ": 0 " .. Texts.studs dl.TextColor3 = Colors.TextSecondary dl.TextStrokeColor3 = Color3.new(0, 0, 0) dl.TextStrokeTransparency = 0.3 dl.Font = Enum.Font.Gotham dl.TextSize = 11
     
-    -- Agregado label para mostrar diamantes
     local diamLabel = Instance.new("TextLabel", fr) diamLabel.Name = "DiamondsLabel" diamLabel.Size = UDim2.new(1, 0, 0, 14) diamLabel.Position = UDim2.fromOffset(0, 78) diamLabel.BackgroundTransparency = 1 diamLabel.Text = "💎 " .. getPlayerDiamonds(player) diamLabel.TextColor3 = Colors.Diamond diamLabel.TextStrokeColor3 = Color3.new(0, 0, 0) diamLabel.TextStrokeTransparency = 0.3 diamLabel.Font = Enum.Font.GothamBold diamLabel.TextSize = 12
     
     local hi = Instance.new("Highlight") hi.Name = "KimikoHighlight" hi.Adornee = character hi.FillColor = espColor hi.OutlineColor = espColor hi.FillTransparency = 0.7 hi.OutlineTransparency = 0 hi.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop hi.Parent = character
@@ -68,16 +81,31 @@ local function createESPForPlayer(player)
     
     local hrp = Data.hrp
     local conn conn = RunService.Heartbeat:Connect(function()
-        if not player or not player.Parent or not character or not character.Parent or not humanoid or humanoid.Health <= 0 then conn:Disconnect() removeESPForPlayer(player) return end
+        -- Mejorada verificacion para limpiar ESP de jugadores muertos o invalidos
+        if not player or not player.Parent then conn:Disconnect() removeESPForPlayer(player) return end
+        local char = player.Character
+        if not char or not char.Parent then conn:Disconnect() removeESPForPlayer(player) return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local rp = char:FindFirstChild("HumanoidRootPart")
+        if not hum or not rp or hum.Health <= 0 then conn:Disconnect() removeESPForPlayer(player) return end
+        
         if EnabledFeatures["ShowHealth"] then
-            hl.Text = Texts.health .. ": " .. math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth) .. " (" .. math.floor((humanoid.Health / humanoid.MaxHealth) * 100) .. "%)"
-            hbf.Size = UDim2.new(math.max(0, humanoid.Health / humanoid.MaxHealth), 0, 1, 0)
-            local p = humanoid.Health / humanoid.MaxHealth
+            hl.Text = Texts.health .. ": " .. math.floor(hum.Health) .. "/" .. math.floor(hum.MaxHealth) .. " (" .. math.floor((hum.Health / hum.MaxHealth) * 100) .. "%)"
+            hbf.Size = UDim2.new(math.max(0, hum.Health / hum.MaxHealth), 0, 1, 0)
+            local p = hum.Health / hum.MaxHealth
             hbf.BackgroundColor3 = p > 0.5 and Color3.fromRGB(0, 255, 0) or p > 0.25 and Color3.fromRGB(255, 255, 0) or Color3.fromRGB(255, 0, 0)
         end
-        if EnabledFeatures["ShowDistance"] and rootPart and hrp then dl.Text = Texts.dist .. ": " .. math.floor((rootPart.Position - hrp.Position).Magnitude) .. " " .. Texts.studs end
-        if EnabledFeatures["ShowTracers"] and rootPart and hrp then local d = (rootPart.Position - hrp.Position).Magnitude tr.Size = Vector3.new(0.2, 0.2, d) tr.CFrame = CFrame.new((hrp.Position + rootPart.Position) / 2, rootPart.Position) tr.Parent = workspace else tr.Parent = nil end
-        -- Actualizar diamantes en tiempo real
+        -- Usar la variable rp en lugar de rootPart y verificar que Data.hrp existe
+        local myHrp = Data.hrp
+        if EnabledFeatures["ShowDistance"] and rp and myHrp then dl.Text = Texts.dist .. ": " .. math.floor((rp.Position - myHrp.Position).Magnitude) .. " " .. Texts.studs end
+        if EnabledFeatures["ShowTracers"] and rp and myHrp then 
+            local d = (rp.Position - myHrp.Position).Magnitude 
+            tr.Size = Vector3.new(0.2, 0.2, d) 
+            tr.CFrame = CFrame.new((myHrp.Position + rp.Position) / 2, rp.Position) 
+            tr.Parent = workspace 
+        else 
+            tr.Parent = nil 
+        end
         if EnabledFeatures["ShowDiamonds"] then
             diamLabel.Text = "💎 " .. getPlayerDiamonds(player)
             diamLabel.Visible = true
@@ -89,7 +117,13 @@ local function createESPForPlayer(player)
     espObjects[player] = {billboard = bb, highlight = hi, tracer = tr, conn = conn}
 end
 
-local function enableAllESP() for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then createESPForPlayer(p) end end end
+local function enableAllESP() 
+    for _, p in pairs(Players:GetPlayers()) do 
+        if isValidPlayer(p) then 
+            createESPForPlayer(p) 
+        end 
+    end 
+end
 local function disableAllESP() for p, _ in pairs(espObjects) do removeESPForPlayer(p) end espObjects = {} end
 
 -- ESP connections
@@ -100,12 +134,12 @@ local function setupESPConnections()
                 if EnabledFeatures["AyaESP"] then
                     task.wait(0.5)
                     removeESPForPlayer(p)
-                    createESPForPlayer(p)
+                    if isValidPlayer(p) then createESPForPlayer(p) end
                 end
             end)
             if EnabledFeatures["AyaESP"] then
                 task.wait(1)
-                createESPForPlayer(p)
+                if isValidPlayer(p) then createESPForPlayer(p) end
             end
         end
     end)
@@ -116,7 +150,7 @@ local function setupESPConnections()
                 if EnabledFeatures["AyaESP"] then
                     task.wait(0.5)
                     removeESPForPlayer(p)
-                    createESPForPlayer(p)
+                    if isValidPlayer(p) then createESPForPlayer(p) end
                 end
             end)
         end
@@ -147,6 +181,17 @@ local function setupToggle(toggle, feature, color, callback)
     end) 
 end
 
+-- Funcion para actualizar visualmente un toggle sin disparar su callback
+local function updateToggleVisual(toggle, active, color)
+    if active then
+        toggle.switch.BackgroundColor3 = color
+        toggle.knob.Position = UDim2.fromOffset(30, 3)
+    else
+        toggle.switch.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+        toggle.knob.Position = UDim2.fromOffset(3, 3)
+    end
+end
+
 -- Crear UI
 local ayaEspToggle = createToggle(parent, Texts.ayaEsp, UDim2.fromOffset(10, 15), EnabledFeatures["AyaESP"], Colors.ESP)
 local showNameToggle = createToggle(parent, Texts.showName, UDim2.fromOffset(10, 65), EnabledFeatures["ShowName"], Colors.ESP)
@@ -154,17 +199,31 @@ local showHealthToggle = createToggle(parent, Texts.showHealth, UDim2.fromOffset
 local showDistanceToggle = createToggle(parent, Texts.showDistance, UDim2.fromOffset(10, 165), EnabledFeatures["ShowDistance"], Colors.ESP)
 local showBoxToggle = createToggle(parent, Texts.showBox, UDim2.fromOffset(10, 215), EnabledFeatures["ShowBox"], Colors.ESP)
 local showTracersToggle = createToggle(parent, Texts.showTracers, UDim2.fromOffset(10, 265), EnabledFeatures["ShowTracers"], Colors.ESP)
--- Agregado toggle para mostrar diamantes
-local showDiamondsToggle = createToggle(parent, Texts.showDiamonds, UDim2.fromOffset(10, 315), EnabledFeatures["ShowDiamonds"], Colors.Diamond)
--- Movido el contador de jugadores mas abajo
+-- Cambiado color de diamantes a verde (Colors.ESP) para que combine con los otros
+local showDiamondsToggle = createToggle(parent, Texts.showDiamonds, UDim2.fromOffset(10, 315), EnabledFeatures["ShowDiamonds"], Colors.ESP)
+
 local espPlayerCount = Instance.new("TextLabel", parent) espPlayerCount.Size = UDim2.new(1, -20, 0, 25) espPlayerCount.Position = UDim2.fromOffset(10, 370) espPlayerCount.Text = "0 " .. Texts.espPlayers espPlayerCount.TextColor3 = Colors.ESP espPlayerCount.BackgroundTransparency = 1 espPlayerCount.Font = Enum.Font.GothamBold espPlayerCount.TextSize = 14 espPlayerCount.TextXAlignment = Enum.TextXAlignment.Left
 
--- ESP Toggle
+-- ESP Toggle ahora activa todas las sub-opciones automaticamente
 ayaEspToggle.switch.MouseButton1Click:Connect(function() 
     EnabledFeatures["AyaESP"] = not EnabledFeatures["AyaESP"] 
     if EnabledFeatures["AyaESP"] then 
         ayaEspToggle.switch.BackgroundColor3 = Colors.ESP 
         TweenService:Create(ayaEspToggle.knob, TweenInfo.new(0.2), {Position = UDim2.fromOffset(30, 3)}):Play() 
+        -- Activar todas las sub-opciones
+        EnabledFeatures["ShowName"] = true
+        EnabledFeatures["ShowHealth"] = true
+        EnabledFeatures["ShowDistance"] = true
+        EnabledFeatures["ShowBox"] = true
+        EnabledFeatures["ShowTracers"] = true
+        EnabledFeatures["ShowDiamonds"] = true
+        -- Actualizar visualmente todos los toggles
+        updateToggleVisual(showNameToggle, true, Colors.ESP)
+        updateToggleVisual(showHealthToggle, true, Colors.ESP)
+        updateToggleVisual(showDistanceToggle, true, Colors.ESP)
+        updateToggleVisual(showBoxToggle, true, Colors.ESP)
+        updateToggleVisual(showTracersToggle, true, Colors.ESP)
+        updateToggleVisual(showDiamondsToggle, true, Colors.ESP)
         enableAllESP() 
     else 
         ayaEspToggle.switch.BackgroundColor3 = Color3.fromRGB(40, 40, 55) 
@@ -178,8 +237,8 @@ setupToggle(showHealthToggle, "ShowHealth", Colors.ESP)
 setupToggle(showDistanceToggle, "ShowDistance", Colors.ESP)
 setupToggle(showBoxToggle, "ShowBox", Colors.ESP)
 setupToggle(showTracersToggle, "ShowTracers", Colors.ESP)
--- Agregado setup para el toggle de diamantes
-setupToggle(showDiamondsToggle, "ShowDiamonds", Colors.Diamond)
+-- Cambiado color a Colors.ESP (verde) para consistencia
+setupToggle(showDiamondsToggle, "ShowDiamonds", Colors.ESP)
 
 -- Update player count
 task.spawn(function() 
