@@ -21,6 +21,7 @@ if guiParent:FindFirstChild("KimikoHUD") then warn("KIMIKO BETA ya ejecutado!") 
 local BASE_URL = "https://raw.githubusercontent.com/KIMIK0T14/Elemental-magic-arena/main/"
 local MODULES = {
     movements = BASE_URL .. "movements.lua",
+    combat = BASE_URL .. "combat.lua",
     diamonds = BASE_URL .. "diamonds.lua",
     gifts = BASE_URL .. "gifts.lua",
     sticky = BASE_URL .. "sticky.lua",
@@ -44,6 +45,7 @@ local Texts = {
     gameNotAllowed = isSpanish and "Juego no permitido!" or "Game not allowed!",
     onlyWorksIn = isSpanish and "Este script solo funciona en Elemental Magic Arena" or "This script only works in Elemental Magic Arena",
     home = "Home", movement = isSpanish and "Movimiento" or "Movement",
+    combat = isSpanish and "Combate" or "Combat",
     diamonds = isSpanish and "Diamantes" or "Diamonds", gifts = isSpanish and "Regalos" or "Gifts",
     sticky = isSpanish and "Pegajoso" or "Sticky", esp = "ESP",
     myProfile = isSpanish and "Mi perfil en ScriptBlox" or "My ScriptBlox profile",
@@ -57,6 +59,9 @@ local Texts = {
     noclip = isSpanish and "Atravesar Paredes" or "Noclip", fly = isSpanish and "Volar" or "Fly",
     flySpeed = isSpanish and "Velocidad Volar" or "Fly Speed",
     autoCollect = isSpanish and "Auto Recolectar" or "Auto Collect",
+    chaosSkill = "CHAOS / Skill 3",
+    fireSwordQ = "FIRE Sword Q",
+    fireSwordX = "FIRE Sword X",
     availableDiamonds = isSpanish and "DIAMANTES DISPONIBLES" or "AVAILABLE DIAMONDS",
     autoGift = isSpanish and "Auto Regalo" or "Auto Gift",
     giftNotifications = isSpanish and "Notificaciones" or "Notifications",
@@ -83,12 +88,14 @@ local Colors = {
     Surface = Color3.fromRGB(25, 25, 35), Text = Color3.new(1, 1, 1),
     TextSecondary = Color3.fromRGB(160, 160, 180), Success = Color3.fromRGB(46, 204, 113),
     Warning = Color3.fromRGB(241, 196, 15), Danger = Color3.fromRGB(231, 76, 60),
-    Home = Color3.fromRGB(0, 191, 255), Diamond = Color3.fromRGB(0, 170, 255),
+    Home = Color3.fromRGB(0, 191, 255), 
+    Combat = Color3.fromRGB(170, 0, 0), -- Rojo para Combat
+    Diamond = Color3.fromRGB(0, 170, 255),
     Gift = Color3.fromRGB(255, 105, 180), Sticky = Color3.fromRGB(255, 165, 0),
     ScriptBlox = Color3.fromRGB(255, 85, 85), ESP = Color3.fromRGB(0, 255, 127)
 }
 
--- Datos globales compartidos con los modulos
+local _G = _G or {}
 _G.KimikoData = {
     Players = Players,
     LocalPlayer = LocalPlayer,
@@ -104,16 +111,15 @@ _G.KimikoData = {
         ["InfiniteJump"] = false, ["Speed"] = false, ["Noclip"] = false, ["Fly"] = false,
         ["AutoCollect"] = false, ["AutoGift"] = false, ["GiftNotifications"] = true,
         ["AyaESP"] = false, ["ShowName"] = true, ["ShowHealth"] = true,
-        ["ShowDistance"] = true, ["ShowBox"] = true, ["ShowTracers"] = false
+        ["ShowDistance"] = true, ["ShowBox"] = true, ["ShowTracers"] = false,
+        ["AutoChaos"] = false, ["AutoFireQ"] = false, ["AutoFireX"] = false
     },
     FeatureValues = {["Speed"] = 0, ["FlySpeed"] = 1, ["TeleportTime"] = 0.1},
     connections = {},
-    -- Variables compartidas
     char = nil,
     hum = nil,
     hrp = nil,
     defaultWalkSpeed = 16,
-    -- Frames de contenido (se asignan despues)
     contentFrames = {}
 }
 
@@ -243,10 +249,11 @@ end
 
 local sidebarHome, sideHomeIcon, sideHomeText = createSideBtn(Texts.home, "H", 8, Colors.Home)
 local sidebarMovimiento, sideMovIcon, sideMovText = createSideBtn(Texts.movement, "M", 48, Colors.Primary)
-local sidebarDiamond, sideDiamondIcon, sideDiamondText = createSideBtn(Texts.diamonds, "D", 88, Colors.Diamond)
-local sidebarGift, sideGiftIcon, sideGiftText = createSideBtn(Texts.gifts, "R", 128, Colors.Gift)
-local sidebarSticky, sideStickyIcon, sideStickyText = createSideBtn(Texts.sticky, "P", 168, Colors.Sticky)
-local sidebarESP, sideESPIcon, sideESPText = createSideBtn(Texts.esp, "E", 208, Colors.ESP)
+local sidebarCombat, sideCombatIcon, sideCombatText = createSideBtn(Texts.combat, "C", 88, Colors.Combat)
+local sidebarDiamond, sideDiamondIcon, sideDiamondText = createSideBtn(Texts.diamonds, "D", 128, Colors.Diamond)
+local sidebarGift, sideGiftIcon, sideGiftText = createSideBtn(Texts.gifts, "R", 168, Colors.Gift)
+local sidebarSticky, sideStickyIcon, sideStickyText = createSideBtn(Texts.sticky, "P", 208, Colors.Sticky)
+local sidebarESP, sideESPIcon, sideESPText = createSideBtn(Texts.esp, "E", 248, Colors.ESP)
 
 -- Content area
 local contentArea = Instance.new("ScrollingFrame", expandedView) contentArea.Size = UDim2.new(1, -150, 1, 0) contentArea.Position = UDim2.fromOffset(145, 0) contentArea.BackgroundTransparency = 1 contentArea.ScrollBarThickness = 6 contentArea.ScrollBarImageColor3 = Colors.Primary contentArea.CanvasSize = UDim2.fromOffset(0, 600) contentArea.BorderSizePixel = 0
@@ -254,6 +261,7 @@ local contentArea = Instance.new("ScrollingFrame", expandedView) contentArea.Siz
 -- Content frames
 local homeContent = Instance.new("Frame", contentArea) homeContent.Size = UDim2.new(1, 0, 0, 550) homeContent.BackgroundTransparency = 1 homeContent.Visible = true
 local movementContent = Instance.new("Frame", contentArea) movementContent.Size = UDim2.new(1, 0, 0, 400) movementContent.BackgroundTransparency = 1 movementContent.Visible = false
+local combatContent = Instance.new("Frame", contentArea) combatContent.Size = UDim2.new(1, 0, 0, 250) combatContent.BackgroundTransparency = 1 combatContent.Visible = false
 local diamondContent = Instance.new("Frame", contentArea) diamondContent.Size = UDim2.new(1, 0, 0, 500) diamondContent.BackgroundTransparency = 1 diamondContent.Visible = false
 local giftContent = Instance.new("Frame", contentArea) giftContent.Size = UDim2.new(1, 0, 0, 500) giftContent.BackgroundTransparency = 1 giftContent.Visible = false
 local stickyContent = Instance.new("Frame", contentArea) stickyContent.Size = UDim2.new(1, 0, 0, 500) stickyContent.BackgroundTransparency = 1 stickyContent.Visible = false
@@ -262,6 +270,7 @@ local espContent = Instance.new("Frame", contentArea) espContent.Size = UDim2.ne
 -- Guardar frames en datos globales para que los modulos los usen
 _G.KimikoData.contentFrames = {
     movement = movementContent,
+    combat = combatContent,
     diamond = diamondContent,
     gift = giftContent,
     sticky = stickyContent,
@@ -274,13 +283,15 @@ local function switchView(view)
     currentView = view
     sidebarHome.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideHomeIcon.TextColor3 = Colors.TextSecondary sideHomeText.TextColor3 = Colors.TextSecondary
     sidebarMovimiento.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideMovIcon.TextColor3 = Colors.TextSecondary sideMovText.TextColor3 = Colors.TextSecondary
+    sidebarCombat.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideCombatIcon.TextColor3 = Colors.TextSecondary sideCombatText.TextColor3 = Colors.TextSecondary
     sidebarDiamond.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideDiamondIcon.TextColor3 = Colors.TextSecondary sideDiamondText.TextColor3 = Colors.TextSecondary
     sidebarGift.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideGiftIcon.TextColor3 = Colors.TextSecondary sideGiftText.TextColor3 = Colors.TextSecondary
     sidebarSticky.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideStickyIcon.TextColor3 = Colors.TextSecondary sideStickyText.TextColor3 = Colors.TextSecondary
     sidebarESP.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideESPIcon.TextColor3 = Colors.TextSecondary sideESPText.TextColor3 = Colors.TextSecondary
-    homeContent.Visible = false movementContent.Visible = false diamondContent.Visible = false giftContent.Visible = false stickyContent.Visible = false espContent.Visible = false
+    homeContent.Visible = false movementContent.Visible = false combatContent.Visible = false diamondContent.Visible = false giftContent.Visible = false stickyContent.Visible = false espContent.Visible = false
     if view == "home" then sidebarHome.BackgroundColor3 = Colors.Home sideHomeIcon.TextColor3 = Colors.Text sideHomeText.TextColor3 = Colors.Text homeContent.Visible = true
     elseif view == "movement" then sidebarMovimiento.BackgroundColor3 = Colors.Primary sideMovIcon.TextColor3 = Colors.Text sideMovText.TextColor3 = Colors.Text movementContent.Visible = true
+    elseif view == "combat" then sidebarCombat.BackgroundColor3 = Colors.Combat sideCombatIcon.TextColor3 = Colors.Text sideCombatText.TextColor3 = Colors.Text combatContent.Visible = true
     elseif view == "diamond" then sidebarDiamond.BackgroundColor3 = Colors.Diamond sideDiamondIcon.TextColor3 = Colors.Text sideDiamondText.TextColor3 = Colors.Text diamondContent.Visible = true
     elseif view == "gift" then sidebarGift.BackgroundColor3 = Colors.Gift sideGiftIcon.TextColor3 = Colors.Text sideGiftText.TextColor3 = Colors.Text giftContent.Visible = true
     elseif view == "sticky" then sidebarSticky.BackgroundColor3 = Colors.Sticky sideStickyIcon.TextColor3 = Colors.Text sideStickyText.TextColor3 = Colors.Text stickyContent.Visible = true
@@ -319,6 +330,7 @@ local jobIdLabel = Instance.new("TextLabel", serverFrame) jobIdLabel.Size = UDim
 -- Sidebar events
 sidebarHome.MouseButton1Click:Connect(function() switchView("home") end)
 sidebarMovimiento.MouseButton1Click:Connect(function() switchView("movement") end)
+sidebarCombat.MouseButton1Click:Connect(function() switchView("combat") end)
 sidebarDiamond.MouseButton1Click:Connect(function() switchView("diamond") end)
 sidebarGift.MouseButton1Click:Connect(function() switchView("gift") end)
 sidebarSticky.MouseButton1Click:Connect(function() switchView("sticky") end)
