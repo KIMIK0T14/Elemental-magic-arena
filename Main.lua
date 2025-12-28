@@ -78,6 +78,8 @@ local Texts = {
     showDistance = isSpanish and "Mostrar Distancia" or "Show Distance",
     showBox = isSpanish and "Mostrar Caja" or "Show Box",
     showTracers = isSpanish and "Mostrar Lineas" or "Show Tracers",
+    -- Agregado texto para mostrar diamantes en ESP
+    showDiamonds = isSpanish and "Mostrar Diamantes" or "Show Diamonds",
     health = isSpanish and "Vida" or "Health", dist = "Dist", studs = "studs",
     espPlayers = isSpanish and "JUGADORES DETECTADOS" or "DETECTED PLAYERS"
 }
@@ -111,7 +113,8 @@ _G.KimikoData = {
         ["InfiniteJump"] = false, ["Speed"] = false, ["Noclip"] = false, ["Fly"] = false,
         ["AutoCollect"] = false, ["AutoGift"] = false, ["GiftNotifications"] = true,
         ["AyaESP"] = false, ["ShowName"] = true, ["ShowHealth"] = true,
-        ["ShowDistance"] = true, ["ShowBox"] = true, ["ShowTracers"] = false,
+        -- Agregado ShowDiamonds a las features habilitadas
+        ["ShowDistance"] = true, ["ShowBox"] = true, ["ShowTracers"] = false, ["ShowDiamonds"] = true,
         ["AutoChaos"] = false, ["AutoFireQ"] = false, ["AutoFireX"] = false
     },
     FeatureValues = {["Speed"] = 0, ["FlySpeed"] = 1, ["TeleportTime"] = 0.1},
