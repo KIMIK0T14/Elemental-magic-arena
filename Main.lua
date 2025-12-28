@@ -1,5 +1,6 @@
 -- KIMIKO BETA - Sistema Modular
--- Archivo Principal: Contiene toda la interfaz visual y carga los módulos externos
+-- Main.lua - Interfaz principal que carga modulos externos
+
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
@@ -16,9 +17,16 @@ if not success then guiParent = LocalPlayer:WaitForChild("PlayerGui") end
 
 if guiParent:FindFirstChild("KimikoHUD") then warn("KIMIKO BETA ya ejecutado!") return end
 
--- ═══════════════════════════════════════════════════════════════
--- CONFIGURACIÓN GLOBAL (Compartida con los módulos)
--- ═══════════════════════════════════════════════════════════════
+-- URLs de los modulos (cambiar a tu repositorio)
+local BASE_URL = "https://raw.githubusercontent.com/KIMIK0T14/Elemental-magic-arena/main/"
+local MODULES = {
+    movements = BASE_URL .. "movements.lua",
+    diamonds = BASE_URL .. "diamonds.lua",
+    gifts = BASE_URL .. "gifts.lua",
+    sticky = BASE_URL .. "sticky.lua",
+    esp = BASE_URL .. "esp.lua"
+}
+
 local LOGO_IMAGE = "rbxassetid://92089256148621"
 local SCRIPTBLOX_URL = "https://scriptblox.com/u/KIMIK0T14"
 local ALLOWED_IDS = {7243409883, 13881791568}
@@ -26,14 +34,13 @@ local ALLOWED_IDS = {7243409883, 13881791568}
 local isSpanish = false
 pcall(function() isSpanish = (LocalizationService.RobloxLocaleId:sub(1, 2) == "es") end)
 
--- Textos multi-idioma
 local Texts = {
     starting = isSpanish and "Iniciando..." or "Starting...",
     verifyingGame = isSpanish and "Verificando juego..." or "Verifying game...",
     checkingId = isSpanish and "Comprobando ID: " or "Checking ID: ",
     gameVerified = isSpanish and "Juego verificado!" or "Game verified!",
     loadingInterface = isSpanish and "Cargando interfaz..." or "Loading interface...",
-    loadingModules = isSpanish and "Cargando módulos..." or "Loading modules...",
+    loadingModules = isSpanish and "Cargando modulos..." or "Loading modules...",
     gameNotAllowed = isSpanish and "Juego no permitido!" or "Game not allowed!",
     onlyWorksIn = isSpanish and "Este script solo funciona en Elemental Magic Arena" or "This script only works in Elemental Magic Arena",
     home = "Home", movement = isSpanish and "Movimiento" or "Movement",
@@ -70,7 +77,6 @@ local Texts = {
     espPlayers = isSpanish and "JUGADORES DETECTADOS" or "DETECTED PLAYERS"
 }
 
--- Colores del tema
 local Colors = {
     Primary = Color3.fromRGB(138, 43, 226), Secondary = Color3.fromRGB(75, 0, 130),
     Accent = Color3.fromRGB(186, 85, 211), Background = Color3.fromRGB(17, 17, 27),
@@ -82,30 +88,36 @@ local Colors = {
     ScriptBlox = Color3.fromRGB(255, 85, 85), ESP = Color3.fromRGB(0, 255, 127)
 }
 
--- Variables globales compartidas con módulos
+-- Datos globales compartidos con los modulos
 _G.KimikoData = {
-    LocalPlayer = LocalPlayer,
     Players = Players,
+    LocalPlayer = LocalPlayer,
     UIS = UIS,
     TweenService = TweenService,
     RunService = RunService,
-    Texts = Texts,
+    guiParent = guiParent,
     Colors = Colors,
+    Texts = Texts,
     isSpanish = isSpanish,
+    LOGO_IMAGE = LOGO_IMAGE,
     EnabledFeatures = {
-        ["InfiniteJump"] = false, ["Speed"] = false, ["Noclip"] = false, 
-        ["Fly"] = false, ["AutoCollect"] = false, ["AutoGift"] = false, 
-        ["GiftNotifications"] = true, ["AyaESP"] = false, ["ShowName"] = true, 
-        ["ShowHealth"] = true, ["ShowDistance"] = true, ["ShowBox"] = true, 
-        ["ShowTracers"] = false
+        ["InfiniteJump"] = false, ["Speed"] = false, ["Noclip"] = false, ["Fly"] = false,
+        ["AutoCollect"] = false, ["AutoGift"] = false, ["GiftNotifications"] = true,
+        ["AyaESP"] = false, ["ShowName"] = true, ["ShowHealth"] = true,
+        ["ShowDistance"] = true, ["ShowBox"] = true, ["ShowTracers"] = false
     },
     FeatureValues = {["Speed"] = 0, ["FlySpeed"] = 1, ["TeleportTime"] = 0.1},
-    connections = {}
+    connections = {},
+    -- Variables compartidas
+    char = nil,
+    hum = nil,
+    hrp = nil,
+    defaultWalkSpeed = 16,
+    -- Frames de contenido (se asignan despues)
+    contentFrames = {}
 }
 
--- ═══════════════════════════════════════════════════════════════
--- LOADING SCREEN
--- ═══════════════════════════════════════════════════════════════
+-- Loading Screen
 local loadingGui = Instance.new("ScreenGui") loadingGui.Name = "KimikoLoading" loadingGui.ResetOnSpawn = false loadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling loadingGui.DisplayOrder = 999 loadingGui.Parent = guiParent
 local blurEffect = Instance.new("BlurEffect") blurEffect.Size = 24 blurEffect.Parent = game:GetService("Lighting")
 local loadingContainer = Instance.new("Frame", loadingGui) loadingContainer.Size = UDim2.fromOffset(400, 200) loadingContainer.Position = UDim2.new(0.5, -200, 0.5, -100) loadingContainer.BackgroundColor3 = Colors.Background loadingContainer.BorderSizePixel = 0
@@ -118,48 +130,15 @@ local loadingStatus = Instance.new("TextLabel", loadingContainer) loadingStatus.
 
 local function animateLoadingBar(p, d) TweenService:Create(loadingBarFill, TweenInfo.new(d, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(p, 0, 1, 0)}):Play() end
 
--- ═══════════════════════════════════════════════════════════════
--- URLs DE LOS MÓDULOS (Cambia estas URLs a tu repositorio)
--- ═══════════════════════════════════════════════════════════════
-local MODULE_URLS = {
-    movement = "https://raw.githubusercontent.com/KIMIK0T14/Elemental-arena/refs/heads/main/modules/movement.lua",
-    diamonds = "https://raw.githubusercontent.com/KIMIK0T14/Elemental-arena/refs/heads/main/modules/diamonds.lua",
-    gifts = "https://raw.githubusercontent.com/KIMIK0T14/Elemental-arena/refs/heads/main/modules/gifts.lua",
-    sticky = "https://raw.githubusercontent.com/KIMIK0T14/Elemental-arena/refs/heads/main/modules/sticky.lua",
-    esp = "https://raw.githubusercontent.com/KIMIK0T14/Elemental-arena/refs/heads/main/modules/esp.lua"
-}
-
--- Almacén de módulos cargados
-local Modules = {}
-
 local isAllowed = false
 task.spawn(function()
-    loadingStatus.Text = Texts.starting animateLoadingBar(0.15, 0.5) task.wait(0.6)
-    loadingStatus.Text = Texts.verifyingGame animateLoadingBar(0.3, 0.8) task.wait(1)
-    loadingStatus.Text = Texts.checkingId .. tostring(game.PlaceId) animateLoadingBar(0.45, 0.5) task.wait(0.7)
-    
+    loadingStatus.Text = Texts.starting animateLoadingBar(0.2, 0.5) task.wait(0.6)
+    loadingStatus.Text = Texts.verifyingGame animateLoadingBar(0.5, 0.8) task.wait(1)
+    loadingStatus.Text = Texts.checkingId .. tostring(game.PlaceId) animateLoadingBar(0.7, 0.5) task.wait(0.7)
     for _, id in pairs(ALLOWED_IDS) do if game.PlaceId == id or game.GameId == id then isAllowed = true break end end
-    
     if isAllowed then
-        loadingStatus.Text = Texts.gameVerified loadingStatus.TextColor3 = Colors.Success animateLoadingBar(0.6, 0.5) task.wait(0.5)
-        
-        -- Cargar módulos externos
-        loadingStatus.Text = Texts.loadingModules animateLoadingBar(0.75, 0.5)
-        
-        -- Cargar cada módulo usando loadstring
-        for name, url in pairs(MODULE_URLS) do
-            pcall(function()
-                loadingStatus.Text = (isSpanish and "Cargando: " or "Loading: ") .. name
-                local moduleCode = game:HttpGet(url)
-                Modules[name] = loadstring(moduleCode)()
-                print("[KIMIKO] Módulo cargado: " .. name)
-            end)
-            task.wait(0.2)
-        end
-        
-        animateLoadingBar(0.9, 0.3) task.wait(0.3)
-        loadingStatus.Text = Texts.loadingInterface animateLoadingBar(1, 0.3) task.wait(0.5)
-        
+        loadingStatus.Text = Texts.gameVerified loadingStatus.TextColor3 = Colors.Success animateLoadingBar(0.85, 0.3) task.wait(0.5)
+        loadingStatus.Text = Texts.loadingModules animateLoadingBar(1, 0.5) task.wait(0.8)
         TweenService:Create(loadingContainer, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
         TweenService:Create(loadingTitle, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
         TweenService:Create(loadingStatus, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
@@ -178,44 +157,26 @@ end)
 repeat task.wait(0.1) until isAllowed or not loadingGui.Parent
 if not isAllowed then return end
 
--- Guardar módulos en _G para acceso global
-_G.KimikoModules = Modules
-
--- ═══════════════════════════════════════════════════════════════
--- VARIABLES DE INTERFAZ
--- ═══════════════════════════════════════════════════════════════
-local currentFPS, currentPing, frameCount, lastFPSUpdate = 0, 0, 0, tick()
-local isMinimized, currentView = false, "home"
-
+-- Inicializar personaje
 local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
-local defaultWalkSpeed = 16
-pcall(function() defaultWalkSpeed = hum.WalkSpeed end)
-
 _G.KimikoData.char = char
 _G.KimikoData.hum = hum
 _G.KimikoData.hrp = hrp
-_G.KimikoData.defaultWalkSpeed = defaultWalkSpeed
+pcall(function() _G.KimikoData.defaultWalkSpeed = hum.WalkSpeed end)
 
--- Actualizar referencias cuando el personaje respawnea
 LocalPlayer.CharacterAdded:Connect(function(newChar)
-    char = newChar hum = newChar:WaitForChild("Humanoid") hrp = newChar:WaitForChild("HumanoidRootPart")
+    char = newChar 
+    hum = newChar:WaitForChild("Humanoid") 
+    hrp = newChar:WaitForChild("HumanoidRootPart")
     _G.KimikoData.char = char
     _G.KimikoData.hum = hum
     _G.KimikoData.hrp = hrp
-    
-    task.wait(0.5)
-    
-    -- Llamar a los módulos para que manejen el respawn
-    if Modules.movement and Modules.movement.onRespawn then Modules.movement.onRespawn() end
-    if Modules.sticky and Modules.sticky.onRespawn then Modules.sticky.onRespawn() end
-    if Modules.esp and Modules.esp.onRespawn then Modules.esp.onRespawn() end
 end)
 
--- ═══════════════════════════════════════════════════════════════
--- FUNCIONES DE ESTADÍSTICAS
--- ═══════════════════════════════════════════════════════════════
+-- Stats
+local currentFPS, currentPing, frameCount, lastFPSUpdate = 0, 0, 0, tick()
 local function updateStats() 
     frameCount = frameCount + 1 
     local ct = tick() 
@@ -239,16 +200,11 @@ RunService.Heartbeat:Connect(updateStats)
 
 local function openURL(url) if setclipboard then setclipboard(url) end end
 
--- ═══════════════════════════════════════════════════════════════
--- INTERFAZ PRINCIPAL
--- ═══════════════════════════════════════════════════════════════
-local fpsLabel, pingLabel, playersLabel, espPlayerCount
-local homeContent, movementContent, diamondContent, giftContent, stickyContent, espContent
-
+-- UI Principal
 local gui = Instance.new("ScreenGui") gui.Name = "KimikoHUD" gui.ResetOnSpawn = false gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling gui.Parent = guiParent
 _G.KimikoData.gui = gui
 
--- Notification container (para el módulo de gifts)
+-- Notification container
 local notificationContainer = Instance.new("Frame", gui) notificationContainer.Size = UDim2.new(0, 280, 0, 200) notificationContainer.Position = UDim2.new(1, -290, 0, 10) notificationContainer.BackgroundTransparency = 1 notificationContainer.ZIndex = 100
 _G.KimikoData.notificationContainer = notificationContainer
 
@@ -256,7 +212,6 @@ _G.KimikoData.notificationContainer = notificationContainer
 local mainWindow = Instance.new("Frame", gui) mainWindow.Size = UDim2.fromOffset(450, 350) mainWindow.Position = UDim2.new(0.5, -225, 0.5, -175) mainWindow.BackgroundColor3 = Colors.Background mainWindow.BorderSizePixel = 0 mainWindow.ClipsDescendants = true
 Instance.new("UICorner", mainWindow).CornerRadius = UDim.new(0, 20)
 
--- Title Bar
 local titleBar = Instance.new("Frame", mainWindow) titleBar.Size = UDim2.new(1, 0, 0, 60) titleBar.BackgroundColor3 = Colors.Primary titleBar.BorderSizePixel = 0
 Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 20)
 local titleGradient = Instance.new("UIGradient", titleBar) titleGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(1, Colors.Secondary)} titleGradient.Rotation = 45
@@ -265,7 +220,8 @@ local titleLogoImage = Instance.new("ImageLabel", titleBar) titleLogoImage.Size 
 local titleLabel = Instance.new("TextLabel", titleBar) titleLabel.Size = UDim2.new(1, -120, 0, 30) titleLabel.Position = UDim2.fromOffset(65, 8) titleLabel.Text = "KIMIKO BETA" titleLabel.TextColor3 = Colors.Text titleLabel.BackgroundTransparency = 1 titleLabel.Font = Enum.Font.GothamBold titleLabel.TextSize = 18 titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 local subtitleLabel = Instance.new("TextLabel", titleBar) subtitleLabel.Size = UDim2.new(1, -120, 0, 20) subtitleLabel.Position = UDim2.fromOffset(65, 35) subtitleLabel.Text = "Elemental Magic Arena" subtitleLabel.TextColor3 = Colors.TextSecondary subtitleLabel.BackgroundTransparency = 1 subtitleLabel.Font = Enum.Font.Gotham subtitleLabel.TextSize = 12 subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Toggle button (Minimize/Maximize)
+-- Toggle button
+local isMinimized = false
 local toggleButton = Instance.new("ImageButton", gui) toggleButton.Size = UDim2.fromOffset(50, 50) toggleButton.Position = UDim2.new(1, -70, 0, 20) toggleButton.BackgroundTransparency = 1 toggleButton.Image = LOGO_IMAGE toggleButton.ZIndex = 1000
 local dragging, draggingInput, dragStart, startPos = false, nil, nil, nil
 toggleButton.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = true dragStart = i.Position startPos = toggleButton.Position i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
@@ -275,9 +231,7 @@ toggleButton.MouseButton1Click:Connect(function() isMinimized = not isMinimized 
 
 local expandedView = Instance.new("Frame", mainWindow) expandedView.Size = UDim2.new(1, 0, 1, -60) expandedView.Position = UDim2.fromOffset(0, 60) expandedView.BackgroundTransparency = 1
 
--- ═══════════════════════════════════════════════════════════════
--- SIDEBAR
--- ═══════════════════════════════════════════════════════════════
+-- Sidebar
 local sidebar = Instance.new("Frame", expandedView) sidebar.Size = UDim2.new(0, 140, 1, 0) sidebar.BackgroundColor3 = Colors.Surface sidebar.BorderSizePixel = 0 Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 15)
 
 local function createSideBtn(name, icon, pos, color)
@@ -294,21 +248,19 @@ local sidebarGift, sideGiftIcon, sideGiftText = createSideBtn(Texts.gifts, "R", 
 local sidebarSticky, sideStickyIcon, sideStickyText = createSideBtn(Texts.sticky, "P", 168, Colors.Sticky)
 local sidebarESP, sideESPIcon, sideESPText = createSideBtn(Texts.esp, "E", 208, Colors.ESP)
 
--- ═══════════════════════════════════════════════════════════════
--- CONTENT AREA
--- ═══════════════════════════════════════════════════════════════
+-- Content area
 local contentArea = Instance.new("ScrollingFrame", expandedView) contentArea.Size = UDim2.new(1, -150, 1, 0) contentArea.Position = UDim2.fromOffset(145, 0) contentArea.BackgroundTransparency = 1 contentArea.ScrollBarThickness = 6 contentArea.ScrollBarImageColor3 = Colors.Primary contentArea.CanvasSize = UDim2.fromOffset(0, 600) contentArea.BorderSizePixel = 0
 
-homeContent = Instance.new("Frame", contentArea) homeContent.Size = UDim2.new(1, 0, 0, 550) homeContent.BackgroundTransparency = 1 homeContent.Visible = true
-movementContent = Instance.new("Frame", contentArea) movementContent.Size = UDim2.new(1, 0, 0, 400) movementContent.BackgroundTransparency = 1 movementContent.Visible = false
-diamondContent = Instance.new("Frame", contentArea) diamondContent.Size = UDim2.new(1, 0, 0, 500) diamondContent.BackgroundTransparency = 1 diamondContent.Visible = false
-giftContent = Instance.new("Frame", contentArea) giftContent.Size = UDim2.new(1, 0, 0, 500) giftContent.BackgroundTransparency = 1 giftContent.Visible = false
-stickyContent = Instance.new("Frame", contentArea) stickyContent.Size = UDim2.new(1, 0, 0, 500) stickyContent.BackgroundTransparency = 1 stickyContent.Visible = false
-espContent = Instance.new("Frame", contentArea) espContent.Size = UDim2.new(1, 0, 0, 400) espContent.BackgroundTransparency = 1 espContent.Visible = false
+-- Content frames
+local homeContent = Instance.new("Frame", contentArea) homeContent.Size = UDim2.new(1, 0, 0, 550) homeContent.BackgroundTransparency = 1 homeContent.Visible = true
+local movementContent = Instance.new("Frame", contentArea) movementContent.Size = UDim2.new(1, 0, 0, 400) movementContent.BackgroundTransparency = 1 movementContent.Visible = false
+local diamondContent = Instance.new("Frame", contentArea) diamondContent.Size = UDim2.new(1, 0, 0, 500) diamondContent.BackgroundTransparency = 1 diamondContent.Visible = false
+local giftContent = Instance.new("Frame", contentArea) giftContent.Size = UDim2.new(1, 0, 0, 500) giftContent.BackgroundTransparency = 1 giftContent.Visible = false
+local stickyContent = Instance.new("Frame", contentArea) stickyContent.Size = UDim2.new(1, 0, 0, 500) stickyContent.BackgroundTransparency = 1 stickyContent.Visible = false
+local espContent = Instance.new("Frame", contentArea) espContent.Size = UDim2.new(1, 0, 0, 400) espContent.BackgroundTransparency = 1 espContent.Visible = false
 
--- Guardar referencias para los módulos
+-- Guardar frames en datos globales para que los modulos los usen
 _G.KimikoData.contentFrames = {
-    home = homeContent,
     movement = movementContent,
     diamond = diamondContent,
     gift = giftContent,
@@ -316,9 +268,7 @@ _G.KimikoData.contentFrames = {
     esp = espContent
 }
 
--- ═══════════════════════════════════════════════════════════════
--- FUNCIÓN PARA CAMBIAR DE VISTA
--- ═══════════════════════════════════════════════════════════════
+local currentView = "home"
 local function switchView(view)
     if currentView == view then return end
     currentView = view
@@ -329,85 +279,16 @@ local function switchView(view)
     sidebarSticky.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideStickyIcon.TextColor3 = Colors.TextSecondary sideStickyText.TextColor3 = Colors.TextSecondary
     sidebarESP.BackgroundColor3 = Color3.fromRGB(40, 40, 55) sideESPIcon.TextColor3 = Colors.TextSecondary sideESPText.TextColor3 = Colors.TextSecondary
     homeContent.Visible = false movementContent.Visible = false diamondContent.Visible = false giftContent.Visible = false stickyContent.Visible = false espContent.Visible = false
-    
     if view == "home" then sidebarHome.BackgroundColor3 = Colors.Home sideHomeIcon.TextColor3 = Colors.Text sideHomeText.TextColor3 = Colors.Text homeContent.Visible = true
     elseif view == "movement" then sidebarMovimiento.BackgroundColor3 = Colors.Primary sideMovIcon.TextColor3 = Colors.Text sideMovText.TextColor3 = Colors.Text movementContent.Visible = true
     elseif view == "diamond" then sidebarDiamond.BackgroundColor3 = Colors.Diamond sideDiamondIcon.TextColor3 = Colors.Text sideDiamondText.TextColor3 = Colors.Text diamondContent.Visible = true
     elseif view == "gift" then sidebarGift.BackgroundColor3 = Colors.Gift sideGiftIcon.TextColor3 = Colors.Text sideGiftText.TextColor3 = Colors.Text giftContent.Visible = true
-    elseif view == "sticky" then 
-        sidebarSticky.BackgroundColor3 = Colors.Sticky sideStickyIcon.TextColor3 = Colors.Text sideStickyText.TextColor3 = Colors.Text stickyContent.Visible = true
-        if Modules.sticky and Modules.sticky.updatePlayerList then Modules.sticky.updatePlayerList() end
+    elseif view == "sticky" then sidebarSticky.BackgroundColor3 = Colors.Sticky sideStickyIcon.TextColor3 = Colors.Text sideStickyText.TextColor3 = Colors.Text stickyContent.Visible = true
+        if _G.KimikoModules and _G.KimikoModules.sticky and _G.KimikoModules.sticky.updatePlayerList then _G.KimikoModules.sticky.updatePlayerList() end
     elseif view == "esp" then sidebarESP.BackgroundColor3 = Colors.ESP sideESPIcon.TextColor3 = Colors.Text sideESPText.TextColor3 = Colors.Text espContent.Visible = true end
 end
 
--- ═══════════════════════════════════════════════════════════════
--- UI HELPERS (Compartidos con módulos)
--- ═══════════════════════════════════════════════════════════════
-local function createSlider(parent, label, val, minV, maxV, pos, color, isDef, defText)
-    local c = Instance.new("Frame", parent) c.Size = UDim2.new(1, -20, 0, 65) c.Position = pos c.BackgroundTransparency = 1
-    local l = Instance.new("TextLabel", c) l.Size = UDim2.new(1, 0, 0, 22) l.BackgroundTransparency = 1 l.Text = label .. ": " .. (isDef and val <= minV and (defText or Texts.defaultSpeed) or tostring(math.floor(val)) .. "x") l.TextColor3 = Colors.Text l.Font = Enum.Font.GothamSemibold l.TextSize = 14 l.TextXAlignment = Enum.TextXAlignment.Left
-    local bg = Instance.new("Frame", c) bg.Size = UDim2.new(1, 0, 0, 30) bg.Position = UDim2.fromOffset(0, 30) bg.BackgroundColor3 = Color3.fromRGB(40, 40, 55) bg.BorderSizePixel = 0 Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
-    local fl = Instance.new("Frame", bg) fl.Size = UDim2.new((val - minV) / (maxV - minV), 0, 1, 0) fl.BackgroundColor3 = color fl.BorderSizePixel = 0 Instance.new("UICorner", fl).CornerRadius = UDim.new(0, 10)
-    local btn = Instance.new("TextButton", bg) btn.Size = UDim2.new(1, 0, 1, 0) btn.Text = "" btn.BackgroundTransparency = 1
-    return {container = c, label = l, bg = bg, fill = fl, button = btn, minVal = minV, maxVal = maxV, value = val, isDef = isDef, labelText = label, defText = defText or Texts.defaultSpeed}
-end
-
-local function createToggle(parent, label, pos, active, color)
-    local c = Instance.new("Frame", parent) c.Size = UDim2.new(1, -20, 0, 40) c.Position = pos c.BackgroundTransparency = 1
-    local l = Instance.new("TextLabel", c) l.Size = UDim2.new(1, -65, 1, 0) l.Text = label l.TextColor3 = Colors.Text l.BackgroundTransparency = 1 l.Font = Enum.Font.GothamSemibold l.TextSize = 14 l.TextXAlignment = Enum.TextXAlignment.Left
-    local sw = Instance.new("TextButton", c) sw.Size = UDim2.fromOffset(55, 28) sw.Position = UDim2.new(1, -60, 0.5, -14) sw.Text = "" sw.BackgroundColor3 = active and color or Color3.fromRGB(40, 40, 55) sw.BorderSizePixel = 0 Instance.new("UICorner", sw).CornerRadius = UDim.new(1, 0)
-    local kn = Instance.new("Frame", sw) kn.Size = UDim2.fromOffset(22, 22) kn.Position = UDim2.fromOffset(active and 30 or 3, 3) kn.BackgroundColor3 = Colors.Text kn.BorderSizePixel = 0 Instance.new("UICorner", kn).CornerRadius = UDim.new(1, 0)
-    return {container = c, label = l, switch = sw, knob = kn}
-end
-
-_G.KimikoData.createSlider = createSlider
-_G.KimikoData.createToggle = createToggle
-
-local function setupSlider(slider, callback) 
-    slider.button.InputBegan:Connect(function(input) 
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-            local moveConn 
-            moveConn = UIS.InputChanged:Connect(function(i2) 
-                if i2.UserInputType == Enum.UserInputType.MouseMovement or i2.UserInputType == Enum.UserInputType.Touch then 
-                    local pos = i2.Position.X - slider.bg.AbsolutePosition.X 
-                    local pct = math.clamp(pos / slider.bg.AbsoluteSize.X, 0, 1) 
-                    local val = slider.minVal + (slider.maxVal - slider.minVal) * pct 
-                    slider.value = val 
-                    slider.fill.Size = UDim2.new(pct, 0, 1, 0) 
-                    callback(val, pct) 
-                end 
-            end) 
-            local relConn 
-            relConn = UIS.InputEnded:Connect(function(i3) 
-                if i3.UserInputType == Enum.UserInputType.MouseButton1 or i3.UserInputType == Enum.UserInputType.Touch then 
-                    moveConn:Disconnect() 
-                    relConn:Disconnect() 
-                end 
-            end) 
-        end 
-    end) 
-end
-
-local function setupToggle(toggle, feature, color, callback) 
-    toggle.switch.MouseButton1Click:Connect(function() 
-        _G.KimikoData.EnabledFeatures[feature] = not _G.KimikoData.EnabledFeatures[feature] 
-        if _G.KimikoData.EnabledFeatures[feature] then 
-            toggle.switch.BackgroundColor3 = color 
-            TweenService:Create(toggle.knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(30, 3)}):Play() 
-        else 
-            toggle.switch.BackgroundColor3 = Color3.fromRGB(40, 40, 55) 
-            TweenService:Create(toggle.knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(3, 3)}):Play() 
-        end 
-        if callback then callback(_G.KimikoData.EnabledFeatures[feature]) end 
-    end) 
-end
-
-_G.KimikoData.setupSlider = setupSlider
-_G.KimikoData.setupToggle = setupToggle
-
--- ═══════════════════════════════════════════════════════════════
--- HOME CONTENT
--- ═══════════════════════════════════════════════════════════════
+-- Home content
 local scriptBloxFrame = Instance.new("Frame", homeContent) scriptBloxFrame.Size = UDim2.new(1, -20, 0, 70) scriptBloxFrame.Position = UDim2.fromOffset(10, 10) scriptBloxFrame.BackgroundColor3 = Colors.Surface scriptBloxFrame.BorderSizePixel = 0 Instance.new("UICorner", scriptBloxFrame).CornerRadius = UDim.new(0, 12)
 local sbIcon = Instance.new("ImageLabel", scriptBloxFrame) sbIcon.Size = UDim2.fromOffset(45, 45) sbIcon.Position = UDim2.fromOffset(12, 12) sbIcon.Image = LOGO_IMAGE sbIcon.BackgroundTransparency = 1
 local sbTitle = Instance.new("TextLabel", scriptBloxFrame) sbTitle.Size = UDim2.new(1, -140, 0, 22) sbTitle.Position = UDim2.fromOffset(65, 12) sbTitle.Text = "KIMIK0T14" sbTitle.TextColor3 = Colors.Text sbTitle.BackgroundTransparency = 1 sbTitle.Font = Enum.Font.GothamBold sbTitle.TextSize = 15 sbTitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -423,21 +304,19 @@ local accountAge = Instance.new("TextLabel", playerInfoFrame) accountAge.Size = 
 
 local statsFrame = Instance.new("Frame", homeContent) statsFrame.Size = UDim2.new(1, -20, 0, 70) statsFrame.Position = UDim2.fromOffset(10, 200) statsFrame.BackgroundColor3 = Colors.Surface statsFrame.BorderSizePixel = 0 Instance.new("UICorner", statsFrame).CornerRadius = UDim.new(0, 12)
 local statsTitle = Instance.new("TextLabel", statsFrame) statsTitle.Size = UDim2.new(1, -20, 0, 22) statsTitle.Position = UDim2.fromOffset(10, 5) statsTitle.Text = Texts.realTimeStats statsTitle.TextColor3 = Colors.Text statsTitle.BackgroundTransparency = 1 statsTitle.Font = Enum.Font.GothamBold statsTitle.TextSize = 13 statsTitle.TextXAlignment = Enum.TextXAlignment.Left
-fpsLabel = Instance.new("TextLabel", statsFrame) fpsLabel.Size = UDim2.new(0.5, -10, 0, 22) fpsLabel.Position = UDim2.fromOffset(10, 35) fpsLabel.Text = "FPS: 0" fpsLabel.TextColor3 = Colors.Success fpsLabel.BackgroundTransparency = 1 fpsLabel.Font = Enum.Font.GothamSemibold fpsLabel.TextSize = 14 fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
-pingLabel = Instance.new("TextLabel", statsFrame) pingLabel.Size = UDim2.new(0.5, -10, 0, 22) pingLabel.Position = UDim2.new(0.5, 5, 0, 35) pingLabel.Text = "PING: 0ms" pingLabel.TextColor3 = Colors.Warning pingLabel.BackgroundTransparency = 1 pingLabel.Font = Enum.Font.GothamSemibold pingLabel.TextSize = 14 pingLabel.TextXAlignment = Enum.TextXAlignment.Left
+local fpsLabel = Instance.new("TextLabel", statsFrame) fpsLabel.Size = UDim2.new(0.5, -10, 0, 22) fpsLabel.Position = UDim2.fromOffset(10, 35) fpsLabel.Text = "FPS: 0" fpsLabel.TextColor3 = Colors.Success fpsLabel.BackgroundTransparency = 1 fpsLabel.Font = Enum.Font.GothamSemibold fpsLabel.TextSize = 14 fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+local pingLabel = Instance.new("TextLabel", statsFrame) pingLabel.Size = UDim2.new(0.5, -10, 0, 22) pingLabel.Position = UDim2.new(0.5, 5, 0, 35) pingLabel.Text = "PING: 0ms" pingLabel.TextColor3 = Colors.Warning pingLabel.BackgroundTransparency = 1 pingLabel.Font = Enum.Font.GothamSemibold pingLabel.TextSize = 14 pingLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local serverFrame = Instance.new("Frame", homeContent) serverFrame.Size = UDim2.new(1, -20, 0, 140) serverFrame.Position = UDim2.fromOffset(10, 280) serverFrame.BackgroundColor3 = Colors.Surface serverFrame.BorderSizePixel = 0 Instance.new("UICorner", serverFrame).CornerRadius = UDim.new(0, 12)
 local serverTitle = Instance.new("TextLabel", serverFrame) serverTitle.Size = UDim2.new(1, -20, 0, 25) serverTitle.Position = UDim2.fromOffset(10, 5) serverTitle.Text = Texts.serverInfo serverTitle.TextColor3 = Colors.Text serverTitle.BackgroundTransparency = 1 serverTitle.Font = Enum.Font.GothamBold serverTitle.TextSize = 13 serverTitle.TextXAlignment = Enum.TextXAlignment.Left
 local gameNameLabel = Instance.new("TextLabel", serverFrame) gameNameLabel.Size = UDim2.new(1, -20, 0, 18) gameNameLabel.Position = UDim2.fromOffset(10, 35) gameNameLabel.TextColor3 = Colors.TextSecondary gameNameLabel.BackgroundTransparency = 1 gameNameLabel.Font = Enum.Font.Gotham gameNameLabel.TextSize = 11 gameNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 pcall(function() gameNameLabel.Text = Texts.game .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
-playersLabel = Instance.new("TextLabel", serverFrame) playersLabel.Size = UDim2.new(1, -20, 0, 18) playersLabel.Position = UDim2.fromOffset(10, 55) playersLabel.Text = Texts.players .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers playersLabel.TextColor3 = Colors.TextSecondary playersLabel.BackgroundTransparency = 1 playersLabel.Font = Enum.Font.Gotham playersLabel.TextSize = 11 playersLabel.TextXAlignment = Enum.TextXAlignment.Left
+local playersLabel = Instance.new("TextLabel", serverFrame) playersLabel.Size = UDim2.new(1, -20, 0, 18) playersLabel.Position = UDim2.fromOffset(10, 55) playersLabel.Text = Texts.players .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers playersLabel.TextColor3 = Colors.TextSecondary playersLabel.BackgroundTransparency = 1 playersLabel.Font = Enum.Font.Gotham playersLabel.TextSize = 11 playersLabel.TextXAlignment = Enum.TextXAlignment.Left
 local gameIdLabel = Instance.new("TextLabel", serverFrame) gameIdLabel.Size = UDim2.new(1, -20, 0, 18) gameIdLabel.Position = UDim2.fromOffset(10, 75) gameIdLabel.Text = "Game ID: " .. game.GameId gameIdLabel.TextColor3 = Colors.TextSecondary gameIdLabel.BackgroundTransparency = 1 gameIdLabel.Font = Enum.Font.Gotham gameIdLabel.TextSize = 11 gameIdLabel.TextXAlignment = Enum.TextXAlignment.Left
 local placeIdLabel = Instance.new("TextLabel", serverFrame) placeIdLabel.Size = UDim2.new(1, -20, 0, 18) placeIdLabel.Position = UDim2.fromOffset(10, 95) placeIdLabel.Text = "Place ID: " .. game.PlaceId placeIdLabel.TextColor3 = Colors.TextSecondary placeIdLabel.BackgroundTransparency = 1 placeIdLabel.Font = Enum.Font.Gotham placeIdLabel.TextSize = 11
 local jobIdLabel = Instance.new("TextLabel", serverFrame) jobIdLabel.Size = UDim2.new(1, -20, 0, 18) jobIdLabel.Position = UDim2.fromOffset(10, 115) jobIdLabel.Text = "Job ID: " .. game.JobId:sub(1, 8) .. "..." jobIdLabel.TextColor3 = Colors.TextSecondary jobIdLabel.BackgroundTransparency = 1 jobIdLabel.Font = Enum.Font.Gotham jobIdLabel.TextSize = 11 jobIdLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- ═══════════════════════════════════════════════════════════════
--- SIDEBAR EVENTS
--- ═══════════════════════════════════════════════════════════════
+-- Sidebar events
 sidebarHome.MouseButton1Click:Connect(function() switchView("home") end)
 sidebarMovimiento.MouseButton1Click:Connect(function() switchView("movement") end)
 sidebarDiamond.MouseButton1Click:Connect(function() switchView("diamond") end)
@@ -445,49 +324,40 @@ sidebarGift.MouseButton1Click:Connect(function() switchView("gift") end)
 sidebarSticky.MouseButton1Click:Connect(function() switchView("sticky") end)
 sidebarESP.MouseButton1Click:Connect(function() switchView("esp") end)
 
--- ═══════════════════════════════════════════════════════════════
--- INICIALIZAR MÓDULOS (crean su propia UI en los content frames)
--- ═══════════════════════════════════════════════════════════════
-task.spawn(function()
-    task.wait(0.5) -- Esperar a que todo esté listo
-    
-    if Modules.movement and Modules.movement.init then 
-        Modules.movement.init(movementContent) 
-    end
-    if Modules.diamonds and Modules.diamonds.init then 
-        Modules.diamonds.init(diamondContent) 
-    end
-    if Modules.gifts and Modules.gifts.init then 
-        Modules.gifts.init(giftContent) 
-    end
-    if Modules.sticky and Modules.sticky.init then 
-        Modules.sticky.init(stickyContent) 
-    end
-    if Modules.esp and Modules.esp.init then 
-        Modules.esp.init(espContent) 
-    end
-end)
-
--- ═══════════════════════════════════════════════════════════════
--- UPDATE LOOPS
--- ═══════════════════════════════════════════════════════════════
+-- Stats update loop
 task.spawn(function() 
     while gui.Parent do 
-        if fpsLabel then fpsLabel.Text = "FPS: " .. tostring(currentFPS) end 
-        if pingLabel then pingLabel.Text = "PING: " .. tostring(currentPing) .. "ms" end 
-        if playersLabel then playersLabel.Text = Texts.players .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers end 
+        fpsLabel.Text = "FPS: " .. tostring(currentFPS)
+        pingLabel.Text = "PING: " .. tostring(currentPing) .. "ms"
+        playersLabel.Text = Texts.players .. #Players:GetPlayers() .. "/" .. Players.MaxPlayers
         task.wait(0.5) 
     end 
 end)
 
 switchView("home")
 
-print("═══════════════════════════════════════")
-print("     KIMIKO BETA - SISTEMA MODULAR     ")
-print("═══════════════════════════════════════")
-print("Módulos cargados:")
-for name, _ in pairs(Modules) do
-    print("  ✓ " .. name)
+-- Cargar modulos externos
+_G.KimikoModules = {}
+
+local function loadModule(name, url)
+    local success, result = pcall(function()
+        return loadstring(game:HttpGet(url))()
+    end)
+    if success then
+        _G.KimikoModules[name] = result
+        print("[KIMIKO] Modulo cargado: " .. name)
+    else
+        warn("[KIMIKO] Error cargando modulo " .. name .. ": " .. tostring(result))
+    end
 end
-print("Idioma: " .. (isSpanish and "Español" or "English"))
-print("═══════════════════════════════════════")
+
+-- Cargar todos los modulos
+for name, url in pairs(MODULES) do
+    task.spawn(function()
+        loadModule(name, url)
+    end)
+end
+
+print("=== KIMIKO BETA MODULAR CARGADO ===")
+print("Sistema Modular: Activado")
+print("Idioma: " .. (isSpanish and "Espanol" or "English"))
