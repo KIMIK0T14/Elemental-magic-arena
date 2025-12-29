@@ -20,6 +20,12 @@ local AUTO_FIRE_X = false
 -- Nuevos estados para Dark Chains
 local AUTO_DARK_CHAINS = false
 local DARK_CHAINS_AUTO_TP = false
+-- Estado para expandir/colapsar la sub-opcion
+local DARKNESS_EXPANDED = false
+-- Cooldown para no spamear TP al mismo jugador
+local lastTpTarget = nil
+local lastTpTime = 0
+local TP_COOLDOWN = 2
 
 local ATTACK_RANGE = 150
 local lastFireQTarget = nil
@@ -61,17 +67,18 @@ local fireQToggle = createToggle(parent, Texts.fireSwordQ, UDim2.fromOffset(10, 
 local fireXToggle = createToggle(parent, Texts.fireSwordX, UDim2.fromOffset(10, 145), AUTO_FIRE_X, Colors.Combat)
 
 -- Toggle para Dark Chains
-local darkChainsToggle = createToggle(parent, "Darkness...", UDim2.fromOffset(10, 195), AUTO_DARK_CHAINS, Colors.Combat)
+local darkChainsToggle = createToggle(parent, "> Darkness...", UDim2.fromOffset(10, 195), AUTO_DARK_CHAINS, Colors.Combat)
 
 -- Sub-opcion Auto TP (mas pequena, indentada)
 local autoTpContainer = Instance.new("Frame", parent)
 autoTpContainer.Size = UDim2.new(1, -40, 0, 30)
 autoTpContainer.Position = UDim2.fromOffset(30, 240)
 autoTpContainer.BackgroundTransparency = 1
+autoTpContainer.Visible = false
 
 local autoTpLabel = Instance.new("TextLabel", autoTpContainer)
 autoTpLabel.Size = UDim2.new(1, -55, 1, 0)
-autoTpLabel.Text = Data.isSpanish and "└ Auto TP (150 studs)" or "└ Auto TP (150 studs)"
+autoTpLabel.Text = Data.isSpanish and "└ Auto TP" or "└ Auto TP"
 autoTpLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
 autoTpLabel.BackgroundTransparency = 1
 autoTpLabel.Font = Enum.Font.Gotham
@@ -221,6 +228,20 @@ autoTpSwitch.MouseButton1Click:Connect(function()
     else
         autoTpSwitch.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
         TweenService:Create(autoTpKnob, TweenInfo.new(0.2), {Position = UDim2.fromOffset(3, 3)}):Play()
+    end
+end)
+
+-- Click en el label para expandir/colapsar (no en el switch)
+darkChainsToggle.label.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        DARKNESS_EXPANDED = not DARKNESS_EXPANDED
+        autoTpContainer.Visible = DARKNESS_EXPANDED
+        -- Cambiar el indicador de expansion
+        if DARKNESS_EXPANDED then
+            darkChainsToggle.label.Text = "v Darkness..."
+        else
+            darkChainsToggle.label.Text = "> Darkness..."
+        end
     end
 end)
 
@@ -392,15 +413,21 @@ task.defer(function()
                     end
                     
                     if remoteEvent then
-                        -- Auto TP si esta activado
+                        -- Auto TP con cooldown de 2 segundos por jugador
                         if DARK_CHAINS_AUTO_TP and hrp then
                             local target = getNearbyAlivePlayer()
                             if target and target.Character then
-                                local targetHrp = target.Character:FindFirstChild("HumanoidRootPart")
-                                if targetHrp then
-                                    pcall(function()
-                                        hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, -3)
-                                    end)
+                                local currentTime = tick()
+                                -- Solo hacer TP si es diferente jugador o pasaron 2 segundos
+                                if target ~= lastTpTarget or (currentTime - lastTpTime) >= TP_COOLDOWN then
+                                    local targetHrp = target.Character:FindFirstChild("HumanoidRootPart")
+                                    if targetHrp then
+                                        pcall(function()
+                                            hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, -3)
+                                        end)
+                                        lastTpTarget = target
+                                        lastTpTime = currentTime
+                                    end
                                 end
                             end
                         end
